@@ -1,25 +1,106 @@
-import logo from './logo.svg';
-import './App.css';
+import * as faceapi from "face-api.js";
+import { useEffect, useRef, useState } from "react";
+import Webcam from "react-webcam";
+import styled from "styled-components";
+import "./App.css";
 
 function App() {
+  const [currentFace, setCurrentFace] = useState(null);
+  const webcamElement = useRef();
+  const canvasElement = useRef();
+  const MODEL_URL = "/models";
+
+  useEffect(() => {
+    const loadModels = async () => {
+      await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+      await faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL);
+      await faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL);
+    };
+    webcamElement.current && loadModels();
+    console.log("models loaded");
+  }, []);
+
+  const validateCapturedFace = async () => {
+    const response = await fetch(currentFace);
+    const imageBlob = await response.blob();
+    const image = await faceapi.bufferToImage(imageBlob);
+
+    const labeledFaceDescriptors = await loadLabeledImages();
+    const faceMatcher = new faceapi.FaceMatch(labeledFaceDescriptors, 0.6);
+
+    const detections = await faceapi
+      .detectAllFaces(image)
+      .withFaceLandmarks()
+      .withFaceDescriptors();
+
+    const results = detections.map((detection) =>
+      faceMatcher.findBestMatch(detection.descriptor)
+    );
+
+    console.log(results);
+  };
+
+  useEffect(() => {
+    if (currentFace) {
+      validateCapturedFace();
+    }
+  }, [currentFace]);
+
+  const identifyCurrentFace = () => {};
+
+  const captureFace = () => {
+    const capturedImage = webcamElement.current.getScreenshot();
+    setCurrentFace(capturedImage);
+    console.log("face captured");
+  };
+
+  const loadLabeledImages = () => {
+    const labels = ["Me", "Dad", "Mom"];
+
+    return Promise.all(
+      labels.map(async (label) => {
+        const descriptions = [];
+        for (let i = 1; i <= 3; i++) {
+          const image = await faceapi.fetchImage(
+            `http://localhost:3000/public/labeled_images/${label}/${i}.jpg`
+          );
+          const detections = await faceapi
+            .detectSingleFace(image)
+            .withFaceLandmarks()
+            .withFaceDescriptor();
+          descriptions.push(detections.descriptor);
+        }
+
+        return new faceapi.LabeledFaceDescriptors(label, descriptions);
+      })
+    );
+  };
+
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <Container>
+      <Webcam
+        ref={webcamElement}
+        height={480}
+        width={640}
+        screenshotFormat="image/png"
+      />
+      <button onClick={captureFace}>Capture</button>
+      {/* {currentFace && <img src={currentFace} alt="capturedFace" />} */}
+      <CanvasContainer>
+        <canvas ref={canvasElement}></canvas>
+      </CanvasContainer>
+    </Container>
   );
 }
+
+const Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+`;
+
+const CanvasContainer = styled.div`
+  position: absolute;
+`;
 
 export default App;
