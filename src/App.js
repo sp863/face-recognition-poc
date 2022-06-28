@@ -26,7 +26,7 @@ function App() {
     const image = await faceapi.bufferToImage(imageBlob);
 
     const labeledFaceDescriptors = await loadLabeledImages();
-    const faceMatcher = new faceapi.FaceMatch(labeledFaceDescriptors, 0.6);
+    const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
 
     const detections = await faceapi
       .detectAllFaces(image)
@@ -37,7 +37,7 @@ function App() {
       faceMatcher.findBestMatch(detection.descriptor)
     );
 
-    console.log(results);
+    console.log(results[0]._label); ////여기서 본인 이름이 나옴!!!!!
   };
 
   useEffect(() => {
@@ -45,8 +45,6 @@ function App() {
       validateCapturedFace();
     }
   }, [currentFace]);
-
-  const identifyCurrentFace = () => {};
 
   const captureFace = () => {
     const capturedImage = webcamElement.current.getScreenshot();
@@ -62,7 +60,7 @@ function App() {
         const descriptions = [];
         for (let i = 1; i <= 3; i++) {
           const image = await faceapi.fetchImage(
-            `http://localhost:3000/public/labeled_images/${label}/${i}.jpg`
+            `https://raw.githubusercontent.com/sp863/face-recognition-poc/main/public/labeled_images/${label}/${i}.jpg`
           );
           const detections = await faceapi
             .detectSingleFace(image)
@@ -85,7 +83,6 @@ function App() {
         screenshotFormat="image/png"
       />
       <button onClick={captureFace}>Capture</button>
-      {/* {currentFace && <img src={currentFace} alt="capturedFace" />} */}
       <CanvasContainer>
         <canvas ref={canvasElement}></canvas>
       </CanvasContainer>
